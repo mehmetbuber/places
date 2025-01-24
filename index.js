@@ -56,7 +56,7 @@ async function init() {
 
   // Function to draw a circle on the map
   function drawCircle(center, radius, options = {}) {
-    console.log(showCirclesButton.style.display)
+    console.log(showCirclesButton.style.display);
     const circle = new google.maps.Circle({
       strokeColor: options.strokeColor || "#ececec",
       strokeOpacity: options.strokeOpacity || 0.8,
@@ -70,7 +70,7 @@ async function init() {
     searchedAreas.push(circle); // Add to searched areas if it's a permanent circle
     return circle;
   }
-  
+
   function drawCircle2(center, radius, options = {}) {
     const circle = new google.maps.Circle({
       strokeColor: options.strokeColor || "#ececec",
@@ -138,7 +138,11 @@ async function init() {
                 (p) => p.place_id === place.place_id
               );
               if (index === -1) {
-                placesData.push(place);
+                placesData.push({
+                  ...place,
+                  lat: place.geometry.location.lat(),
+                  lng: place.geometry.location.lng(),
+                });
                 createMarker(place);
               }
             });
@@ -319,11 +323,12 @@ async function init() {
     ];
 
     placesData.forEach((place) => {
+      console.log(place);
       kmzData.push(
         `<Placemark>\n<name>${sanitizeXML(
           place.name
         )}</name>\n<description>${sanitizeXML(
-          place.type
+          place.types?.join(", ") || ""
         )}</description>\n<Point>\n<coordinates>${place.lng},${
           place.lat
         }</coordinates>\n</Point>\n</Placemark>`
