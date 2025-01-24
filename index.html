@@ -122,12 +122,32 @@
             </select>
         </div>
         <div class="input-group">
-            <label for="radius">Min Rating:</label>
-            <input id="radius" type="number" placeholder="Enter minimum rating" value="4" />
+            <label for="min-rating">Min Rating:</label>
+            <input id="min-rating" type="number" placeholder="Enter minimum rating" value="4" />
         </div>
         <div class="button-group">
             <button id="search" class="btn btn-primary">Search</button>
             <button id="download-kmz" class="btn btn-secondary">Download KMZ</button>
+        </div>
+        <hr>
+        </hr>
+        <div class="button-group" style="margin-top: 20px;">
+            <button id="save-json" class="btn btn-secondary">Export Project</button>
+            <label for="import-json" style="cursor: pointer;">
+                <button class="btn btn-secondary" onclick="{
+                    document.getElementById('import-json').click();
+                }">Import JSON</button>
+            </label>
+            <input id="import-json" type="file" accept=".json" style="display: none;" />
+        </div>
+        <hr>
+        </hr>
+        <div class="button-group" style="margin-top: 20px;">
+            <button id="delete" class="btn btn-danger" disabled>Delete Place</button>
+            <button id="show-labels" class="btn btn-secondary" style="display: none;">Show Labels</button>
+            <button id="hide-labels" class="btn btn-secondary">Hide Labels</button>
+            <button id="show-circles" class="btn btn-secondary" style="display: none;">Show Searched Areas</button>
+            <button id="hide-circles" class="btn btn-secondary">Hide Searched Areas</button>
         </div>
     </div>
 
