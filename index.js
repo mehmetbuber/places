@@ -8,6 +8,7 @@ async function init() {
   const downloadButton = document.querySelector("#download-kmz"); // Button to download KMZ file
   const radiusInput = document.querySelector("#radius"); // Input field for search radius
   const minRatingInput = document.querySelector("#min-rating"); // Input field for minimum rating
+  const minRatingCountInput = document.querySelector("#min-rating-count"); // Input field for minimum rating
   const typeInput = document.querySelector("#type"); // Input field for place type
   const keywordInput = document.querySelector("#keyword"); // Input field for keyword search
   const saveButton = document.querySelector("#save-json"); // Button to save data as JSON
@@ -27,6 +28,7 @@ async function init() {
   let currentCenterCircle = null; // Circle to indicate the current search area
   let radius = 1000; // Default search radius in meters
   let rating = 4.0; // Default minimum rating for places
+  let ratingCount = 20; // Default minimum rating for places
   let type = "park"; // Default place type for search
   let keyword = "";
 
@@ -45,6 +47,10 @@ async function init() {
 
   minRatingInput.addEventListener("input", () => {
     rating = parseFloat(minRatingInput.value);
+  });
+
+  minRatingCountInput.addEventListener("input", () => {
+    ratingCount = parseFloat(minRatingCountInput.value);
   });
 
   // Configure map options for satellite view without labels
@@ -131,7 +137,7 @@ async function init() {
       const handleResults = (results, status, pagination) => {
         if (status === google.maps.places.PlacesServiceStatus.OK) {
           results
-            .filter((place) => place.rating && place.rating >= rating) // Filter places with rating >= 4.0
+            .filter((place) => place.rating && place.rating >= rating && place.user_ratings_total > ratingCount) // Filter places with rating >= 4.0
             .forEach((place) => {
               // Check for duplicates before adding to the array
               const index = placesData.findIndex(
