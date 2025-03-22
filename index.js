@@ -18,6 +18,8 @@ async function init() {
   const hideLabelsButton = document.querySelector("#hide-labels"); // Button to hide all labels
   const showCirclesButton = document.querySelector("#show-circles"); // Button to show all circles
   const hideCirclesButton = document.querySelector("#hide-circles"); // Button to hide all circles
+  const clearPlacesButton = document.querySelector("#clear-places"); // Button to hide all circles
+  const clearSearchAreasButton = document.querySelector("#clear-search-areas"); // Button to hide all circles
 
   let markers = [];
   let labels = [];
@@ -32,33 +34,47 @@ async function init() {
   let type = "park"; // Default place type for search
   let keyword = "";
 
+  loadInputsFromLocalStorage();
+
+  // Update initial state variables from loaded inputs
+  radius = parseInt(radiusInput.value);
+  type = typeInput.value;
+  keyword = keywordInput.value;
+  rating = parseFloat(minRatingInput.value);
+  ratingCount = parseFloat(minRatingCountInput.value);
+
   radiusInput.addEventListener("input", () => {
     radius = parseInt(radiusInput.value);
     updateCenterCircle();
+    saveInputsToLocalStorage();
   });
 
   typeInput.addEventListener("input", () => {
     type = typeInput.value;
+    saveInputsToLocalStorage();
   });
 
   keywordInput.addEventListener("input", () => {
     keyword = keywordInput.value;
+    saveInputsToLocalStorage();
   });
 
   minRatingInput.addEventListener("input", () => {
     rating = parseFloat(minRatingInput.value);
+    saveInputsToLocalStorage();
   });
 
   minRatingCountInput.addEventListener("input", () => {
     ratingCount = parseFloat(minRatingCountInput.value);
+    saveInputsToLocalStorage();
   });
 
   // Configure map options for satellite view without labels
-  map.innerMap.setOptions({
-    center: { lat: 41.11386214265593, lng: 29.054110241449372 },
-    zoom: 15,
-    mapTypeId: "satellite",
-  });
+  const { center, zoom } = loadMapState();
+  map.innerMap.setOptions({ center, zoom, mapTypeId: "satellite" });
+
+  map.innerMap.addListener("center_changed", saveMapState);
+  map.innerMap.addListener("zoom_changed", saveMapState);
 
   // Function to draw a circle on the map
   function drawCircle(center, radius, options = {}) {
@@ -107,90 +123,115 @@ async function init() {
   // Update the center circle whenever the map is moved
   map.innerMap.addListener("center_changed", updateCenterCircle);
 
-  // Function to fetch places via Places API with pagination
-  async function fetchPlaces() {
-    map.innerMap.setOptions({
-      gestureHandling: "none", // Disables all gestures (dragging, zooming, scrolling)
-      draggable: false, // Specifically prevents dragging
-      zoomControl: false, // Hides the zoom control UI
-      scrollwheel: false, // Disables zooming with the mouse wheel
-      disableDoubleClickZoom: true, // Disables zooming on double-click
-    });
-
-    searchButton.disabled = true; // Disable the search button to prevent multiple requests
+  async function recursiveSearch(center, radius, depth = 0) {
+    const MAX_PLACES_LIMIT = 60;
+    const MAX_DEPTH = 3; // limit recursion to 2 levels
     const service = new google.maps.places.PlacesService(map.innerMap);
-    const center = map.innerMap.getCenter(); // Get the center of the map
-    const types = [type]; // Add multiple types to search
 
-    // Draw a circle for the searched area
+    // Draw search circle
     drawCircle(center.toJSON(), radius);
 
-    types.forEach((type) => {
-      const request = {
-        location: center, // Use the center of the screen as the search location
-        radius: radius, // Search radius in meters
-        type: type, // Dynamic type for each search
-        rankBy: google.maps.places.RankBy.PROMINENCE, // Rank by prominence for more important places,
-        keyword: keyword, // Search keyword
-      };
-      let total = 0;
+    const request = {
+      location: center,
+      radius: radius,
+      type: type,
+      keyword: keyword,
+      rankBy: google.maps.places.RankBy.PROMINENCE,
+    };
+
+    return new Promise((resolve) => {
+      let fetched = [];
+
       const handleResults = (results, status, pagination) => {
         if (status === google.maps.places.PlacesServiceStatus.OK) {
-          results
-            .filter((place) => place.rating && place.rating >= rating && place.user_ratings_total > ratingCount) // Filter places with rating >= 4.0
-            .forEach((place) => {
-              // Check for duplicates before adding to the array
-              const index = placesData.findIndex(
-                (p) => p.place_id === place.place_id
-              );
-              if (index === -1) {
-                placesData.push({
-                  ...place,
-                  lat: place.geometry.location.lat(),
-                  lng: place.geometry.location.lng(),
-                });
-                createMarker(place);
-              }
-            });
-          total += results.length;
+          const filtered = results.filter(
+            (place) =>
+              place.rating >= rating && place.user_ratings_total > ratingCount
+          );
 
-          // If there are more pages of results, fetch them
+          for (const place of filtered) {
+            if (!placesData.find((p) => p.place_id === place.place_id)) {
+              placesData.push({
+                ...place,
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+              });
+              createMarker(place);
+            }
+          }
+
+          fetched = fetched.concat(results);
+
           if (pagination && pagination.hasNextPage) {
-            setTimeout(() => pagination.nextPage(), 1000); // Add a delay to prevent rate-limiting
-          } else {
-            searchButton.disabled = false; // Enable the search button after all results are fetched
+            setTimeout(() => pagination.nextPage(), 1000);
+          } else if (
+            fetched.length >= MAX_PLACES_LIMIT &&
+            radius > 100 &&
+            depth < MAX_DEPTH
+          ) {
+            // Too many results, split into 6 overlapping circles to cover full area
+            const offsets = [
+              { lat: 0, lng: 0 }, // center
+              { lat: 1, lng: 0 },
+              { lat: -1, lng: 0 },
+              { lat: 0, lng: 1 },
+              { lat: 0, lng: -1 },
+              { lat: 0.707, lng: 0.707 },
+            ];
+            const earthRadius = 6378137; // in meters
+            const latOffset = ((radius * 0.75) / earthRadius) * (180 / Math.PI);
+            const lngOffset =
+              latOffset / Math.cos((center.lat() * Math.PI) / 180);
 
-            map.innerMap.setOptions({
-              gestureHandling: "auto", // Restores default gesture handling
-              draggable: true, // Enables dragging
-              zoomControl: true, // Shows the zoom control UI
-              scrollwheel: true, // Enables zooming with the mouse wheel
-              disableDoubleClickZoom: false, // Enables double-click zoom
+            const subPromises = offsets.map((offset) => {
+              const subCenter = new google.maps.LatLng(
+                center.lat() + offset.lat * latOffset,
+                center.lng() + offset.lng * lngOffset
+              );
+              return recursiveSearch(subCenter, radius / 2, depth + 1);
             });
 
-            if (total == 60)
+            Promise.all(subPromises).then(() => resolve());
+          } else {
+            if (
+              fetched.length >= MAX_PLACES_LIMIT &&
+              depth >= MAX_DEPTH &&
+              !alertShown
+            ) {
               alert(
-                "Maximum limit reached. Please zoom in to get more results."
+                "Maximum limit reached in some areas. Try reducing the radius or zooming in."
               );
+              alertShown = true;
+            }
+            resolve();
           }
         } else {
-          console.error("Places API request failed with status: " + status);
-          searchButton.disabled = false; // Enable the search button after all results are fetched
-
-          map.innerMap.setOptions({
-            gestureHandling: "auto", // Restores default gesture handling
-            draggable: true, // Enables dragging
-            zoomControl: true, // Shows the zoom control UI
-            scrollwheel: true, // Enables zooming with the mouse wheel
-            disableDoubleClickZoom: false, // Enables double-click zoom
-          });
+          console.error("Places API failed with status: ", status);
+          resolve();
         }
       };
 
       service.nearbySearch(request, handleResults);
     });
   }
+  // Function to fetch places via Places API with pagination
 
+  async function fetchPlaces() {
+    searchButton.disabled = true;
+    alertShown = false; // Reset before each search
+
+    const center = map.innerMap.getCenter();
+    await recursiveSearch(center, radius);
+
+    searchButton.disabled = false;
+    map.innerMap.setOptions({
+      gestureHandling: "auto",
+      draggable: true,
+      zoomControl: true,
+      scrollwheel: true,
+      disableDoubleClickZoom: false,
+    });
+  }
   function createMarker(place) {
     const marker = new google.maps.Marker({
       position: place.geometry.location,
@@ -440,6 +481,21 @@ async function init() {
     });
   }
 
+  function clearPlaces() {
+    clearAllMarkers();
+    placesData = [];
+    searchedAreas.forEach((circle) => circle.setMap(null));
+    searchedAreas = [];
+  }
+
+  function clearSearchAreas() {
+    searchedAreas.forEach((circle) => circle.setMap(null));
+    searchedAreas = [];
+  }
+
+  clearPlacesButton.addEventListener("click", clearPlaces);
+  clearSearchAreasButton.addEventListener("click", clearSearchAreas);
+
   saveButton.addEventListener("click", saveProgress);
   importButton.addEventListener("change", importProgress);
 
@@ -482,6 +538,46 @@ async function init() {
 
   // Draw the initial center circle when the map loads
   updateCenterCircle();
+
+  function saveInputsToLocalStorage() {
+    localStorage.setItem("radius", radiusInput.value);
+    localStorage.setItem("type", typeInput.value);
+    localStorage.setItem("keyword", keywordInput.value);
+    localStorage.setItem("minRating", minRatingInput.value);
+    localStorage.setItem("minRatingCount", minRatingCountInput.value);
+  }
+
+  function loadInputsFromLocalStorage() {
+    if (localStorage.getItem("radius"))
+      radiusInput.value = localStorage.getItem("radius");
+    typeInput.value = localStorage.getItem("type");
+    if (localStorage.getItem("keyword"))
+      keywordInput.value = localStorage.getItem("keyword");
+    if (localStorage.getItem("minRating"))
+      minRatingInput.value = localStorage.getItem("minRating");
+    if (localStorage.getItem("minRatingCount"))
+      minRatingCountInput.value = localStorage.getItem("minRatingCount");
+  }
+
+  function saveMapState() {
+    const center = map.innerMap.getCenter();
+    localStorage.setItem("mapCenterLat", center.lat());
+    localStorage.setItem("mapCenterLng", center.lng());
+    localStorage.setItem("mapZoom", map.innerMap.getZoom());
+  }
+
+  function loadMapState() {
+    return {
+      center: {
+        lat:
+          parseFloat(localStorage.getItem("mapCenterLat")) || 41.11386214265593,
+        lng:
+          parseFloat(localStorage.getItem("mapCenterLng")) ||
+          29.054110241449372,
+      },
+      zoom: parseInt(localStorage.getItem("mapZoom")) || 15,
+    };
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);

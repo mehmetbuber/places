@@ -10,7 +10,7 @@ body {
 }
 
 #search-parameters {
-  margin: 20px;
+  margin: 10px;
   position: fixed;
   top: 80px;
   left: 0;
@@ -26,7 +26,7 @@ body {
 }
 
 .input-group {
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 label {
@@ -91,9 +91,6 @@ select:focus {
   background: #c82333;
 }
 
-
-
-
 /* Disabled Button Styling */
 .btn:disabled {
   background: #d6d6d6;
@@ -106,4 +103,10 @@ select:focus {
 gmp-map {
   width: 100%;
   height: 100%;
+}
+
+.w50 {
+  width: 100%;
+  display: flex;
+  vertical-align: middle;
 }

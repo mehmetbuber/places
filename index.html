@@ -6,7 +6,7 @@
     <script type="module"
         src="https://ajax.googleapis.com/ajax/libs/@googlemaps/extended-component-library/0.6.11/index.min.js">
         </script>
-    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./style.css?v=1" />
 </head>
 
 <body>
@@ -146,12 +146,15 @@
         </div>
         <hr>
         </hr>
-        <div class="button-group" style="margin-top: 20px;">
-            <button id="delete" class="btn btn-danger" disabled>Delete Place</button>
-            <button id="show-labels" class="btn btn-secondary" style="display: none;">Show Labels</button>
-            <button id="hide-labels" class="btn btn-secondary">Hide Labels</button>
-            <button id="show-circles" class="btn btn-secondary" style="display: none;">Show Searched Areas</button>
-            <button id="hide-circles" class="btn btn-secondary">Hide Searched Areas</button>
+        <button id="delete" class="btn btn-danger" disabled>Delete Place</button>
+
+        <div class="button-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 400px; margin: auto;">
+            <button id="show-labels" class="btn btn-secondary w50" style="display: none;">Show Places</button>
+            <button id="hide-labels" class="btn btn-secondary w50">Hide Places</button>
+            <button id="show-circles" class="btn btn-secondary w50" style="display: none;">Show Areas</button>
+            <button id="hide-circles" class="btn btn-secondary w50">Hide Areas</button>
+            <button id="clear-places" class="btn btn-danger w50">Clear Places</button>
+            <button id="clear-search-areas" class="btn btn-danger w50">Clear Areas</button>
         </div>
     </div>
 
@@ -160,11 +163,11 @@
     </gmpx-api-loader>
     <gmp-map center="40.749933,-73.98633" zoom="13" map-id="DEMO_MAP_ID">
         <div slot="control-block-start-inline-start" class="place-picker-container">
-            <gmpx-place-picker placeholder="Enter an address"></gmpx-place-picker>
+            <gmpx-place-picker placeholder="Enter an address" style="margin-top:10px"></gmpx-place-picker>
         </div>
         <gmp-advanced-marker></gmp-advanced-marker>
     </gmp-map>
-    <script src="./index.js"></script>
+    <script src="./index.js?v=1"></script>
 </body>
 
 </html>
