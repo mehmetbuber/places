@@ -169,24 +169,31 @@ async function init() {
             radius > 100 &&
             depth < MAX_DEPTH
           ) {
-            // Too many results, split into 6 overlapping circles to cover full area
+            // Too many results, split into 7 circles: center + 6 evenly spaced around center
+            const numSubCircles = 6;
+            const earthRadius = 6378137; // in meters
+            const angleStep = (2 * Math.PI) / numSubCircles;
+            const offsetDistance = radius * 0.75;
+            const latOffsetBase =
+              (offsetDistance / earthRadius) * (180 / Math.PI);
+            const lngOffsetBase =
+              latOffsetBase / Math.cos((center.lat() * Math.PI) / 180);
+
             const offsets = [
               { lat: 0, lng: 0 }, // center
-              { lat: 1, lng: 0 },
-              { lat: -1, lng: 0 },
-              { lat: 0, lng: 1 },
-              { lat: 0, lng: -1 },
-              { lat: 0.707, lng: 0.707 },
+              ...Array.from({ length: numSubCircles }).map((_, i) => {
+                const angle = i * angleStep;
+                return {
+                  lat: Math.sin(angle),
+                  lng: Math.cos(angle),
+                };
+              }),
             ];
-            const earthRadius = 6378137; // in meters
-            const latOffset = ((radius * 0.75) / earthRadius) * (180 / Math.PI);
-            const lngOffset =
-              latOffset / Math.cos((center.lat() * Math.PI) / 180);
 
             const subPromises = offsets.map((offset) => {
               const subCenter = new google.maps.LatLng(
-                center.lat() + offset.lat * latOffset,
-                center.lng() + offset.lng * lngOffset
+                center.lat() + offset.lat * latOffsetBase,
+                center.lng() + offset.lng * lngOffsetBase
               );
               return recursiveSearch(subCenter, radius / 2, depth + 1);
             });
@@ -214,8 +221,8 @@ async function init() {
       service.nearbySearch(request, handleResults);
     });
   }
-  // Function to fetch places via Places API with pagination
 
+  // Override fetchPlaces with recursive logic
   async function fetchPlaces() {
     searchButton.disabled = true;
     alertShown = false; // Reset before each search
@@ -232,6 +239,7 @@ async function init() {
       disableDoubleClickZoom: false,
     });
   }
+
   function createMarker(place) {
     const marker = new google.maps.Marker({
       position: place.geometry.location,
